@@ -7,6 +7,7 @@ import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -80,5 +81,7 @@ public class SalespersonService {
         SalesPersons salesperson = new SalesPersons();
         salesperson.setName(dto.getName());
         salesperson.setPhone(dto.getPhone());
+        salesperson.setCreatedAt(LocalDateTime.now());
+        salesperson.setUpdatedAt(LocalDateTime.now());
         return salesperson;
     }}
