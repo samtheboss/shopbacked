@@ -63,4 +63,8 @@ public class SalespersonController {
         List<SalespersonDTO> topPerformers = salespersonService.getTopPerformers();
         return ResponseEntity.ok(topPerformers);
     }
+    @GetMapping("/keepawake")
+    public ResponseEntity<String> keepAwake(){
+        return  ResponseEntity.ok("requested");
+    }
 }
