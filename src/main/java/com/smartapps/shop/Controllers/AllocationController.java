@@ -61,9 +61,9 @@ public class AllocationController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteAllocation(@PathVariable Long id) {
+    public ResponseEntity<String> deleteAllocation(@PathVariable Long id) {
         allocationService.deleteAllocation(id);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok("Allocation deleted Successfully");
     }
 
     @GetMapping("/date/{date}")
