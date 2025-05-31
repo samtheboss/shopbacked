@@ -1,7 +1,10 @@
 package com.smartapps.shop.Services;
+
 import com.smartapps.shop.Models.Inventory;
+import com.smartapps.shop.Models.StockAdjustment;
 import com.smartapps.shop.Models.dtos.ItemDTO;
 import com.smartapps.shop.Repos.ItemRepository;
+import com.smartapps.shop.Repos.StockAdjustmentRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -17,6 +20,8 @@ public class ItemService {
 
     @Autowired
     private ItemRepository itemRepository;
+    @Autowired
+    private StockAdjustmentRepository logRepo;
 
     public List<ItemDTO> getAllItems() {
         return itemRepository.findAll().stream()
@@ -35,19 +40,41 @@ public class ItemService {
         return convertToDTO(savedItem);
     }
 
-    public Optional<ItemDTO> updateItem(Long id, ItemDTO itemDTO) {
-        return itemRepository.findById(id)
-                .map(existingItem -> {
-                    existingItem.setName(itemDTO.getName());
-                    existingItem.setDescription(itemDTO.getDescription());
-                    existingItem.setPrice(itemDTO.getPrice());
-                    existingItem.setStock(itemDTO.getStock());
-                    existingItem.setMinStock(itemDTO.getMinStock());
-                    existingItem.setCategory(itemDTO.getCategory());
-                    existingItem.setSku(itemDTO.getSku());
-                    return convertToDTO(itemRepository.save(existingItem));
-                });
+    public void logStockAdjustment(Long productId, String type, double quantity, double prevQty) {
+        StockAdjustment log = new StockAdjustment();
+        log.setProductId(productId);
+        log.setAdjustmentType(type);
+        log.setQuantity(quantity);
+        log.setPreQuantity(prevQty);
+        logRepo.save(log);
     }
+
+    public Optional<ItemDTO> updateItem(Long id, ItemDTO itemDTO) {
+        return itemRepository.findById(id).map(existingItem -> {
+            double previousStock = existingItem.getStock();
+            existingItem.setName(itemDTO.getName());
+            existingItem.setDescription(itemDTO.getDescription());
+            existingItem.setPrice(itemDTO.getPrice());
+            existingItem.setStock(itemDTO.getStock());
+            existingItem.setMinStock(itemDTO.getMinStock());
+            existingItem.setCategory(itemDTO.getCategory());
+            existingItem.setSku(itemDTO.getSku());
+            Inventory savedItem = itemRepository.save(existingItem);
+            double newStock = savedItem.getStock();
+            if (previousStock != newStock) {
+                String adjustmentType = (newStock > previousStock) ? "INCREASE" : "DECREASE";
+                logStockAdjustment(
+                        savedItem.getId(),
+                        adjustmentType,
+                        newStock,
+                        previousStock
+                );
+            }
+
+            return convertToDTO(savedItem);
+        });
+    }
+
 
     public boolean deleteItem(Long id) {
         if (itemRepository.existsById(id)) {

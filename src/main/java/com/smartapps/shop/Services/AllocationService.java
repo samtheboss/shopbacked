@@ -1,16 +1,10 @@
 package com.smartapps.shop.Services;
 
-import com.smartapps.shop.Models.Allocation;
-import com.smartapps.shop.Models.Inventory;
-import com.smartapps.shop.Models.Orders;
-import com.smartapps.shop.Models.SalesPersons;
+import com.smartapps.shop.Models.*;
 import com.smartapps.shop.Models.dtos.AllocationDTO;
 import com.smartapps.shop.Models.dtos.DailyAllocationSummaryDTO;
 import com.smartapps.shop.Models.dtos.EndOfDayProcessingDTO;
-import com.smartapps.shop.Repos.AllocationRepository;
-import com.smartapps.shop.Repos.ItemRepository;
-import com.smartapps.shop.Repos.OrdersRepo;
-import com.smartapps.shop.Repos.SalespersonRepository;
+import com.smartapps.shop.Repos.*;
 import jakarta.transaction.Transactional;
 import org.hibernate.query.Order;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,7 +38,6 @@ public class AllocationService {
     @Autowired
     OrdersRepo ordersRepository;
 
-    // Basic CRUD Operations
 
     public List<AllocationDTO> getAllAllocations() {
         return allocationRepository.findAllWithDetails().stream()
@@ -161,58 +154,58 @@ public class AllocationService {
 //        return convertToDTO(savedAllocation);
 //    }
 
-public ResponseEntity<?> createAllocation(AllocationDTO allocationDTO) {
-    Optional<SalesPersons> salesperson = salespersonRepository.findById(allocationDTO.getSalespersonId());
-    Optional<Inventory> item = itemRepository.findById(allocationDTO.getItemId());
+    public ResponseEntity<?> createAllocation(AllocationDTO allocationDTO) {
+        Optional<SalesPersons> salesperson = salespersonRepository.findById(allocationDTO.getSalespersonId());
+        Optional<Inventory> item = itemRepository.findById(allocationDTO.getItemId());
 
-    if (salesperson.isEmpty()) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body("Salesperson not found with ID: " + allocationDTO.getSalespersonId());
+        if (salesperson.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("Salesperson not found with ID: " + allocationDTO.getSalespersonId());
+        }
+
+        if (item.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("Item not found with ID: " + allocationDTO.getItemId());
+        }
+
+        Inventory itemEntity = item.get();
+        if (itemEntity.getStock() < allocationDTO.getQuantity()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Insufficient stock. Available: " + itemEntity.getStock() +
+                            ", Requested: " + allocationDTO.getQuantity());
+        }
+
+        Orders orders = new Orders();
+        orders.setSalespersonId(allocationDTO.getSalespersonId());
+        orders.setOrderStatus(String.valueOf(allocationDTO.getStatus()));
+        ordersRepository.save(orders);
+
+        // Proceed with allocation
+        Allocation allocation = new Allocation();
+        allocation.setSalesperson(salesperson.get());
+        allocation.setItem(itemEntity);
+        allocation.setOrderId(orders.getOrderId());
+        allocation.setQuantity(allocationDTO.getQuantity());
+
+        if (allocationDTO.getAllocationDate() != null) {
+            allocation.setAllocationDate(allocationDTO.getAllocationDate());
+        }
+
+        // Update item stock
+        itemEntity.setStock(itemEntity.getStock() - allocationDTO.getQuantity());
+        itemRepository.save(itemEntity);
+
+        // Update salesperson allocated items
+        SalesPersons salespersonEntity = salesperson.get();
+        salespersonEntity.setItemsAllocated(
+                salespersonEntity.getItemsAllocated() + allocationDTO.getQuantity());
+        salespersonRepository.save(salespersonEntity);
+
+        Allocation savedAllocation = allocationRepository.save(allocation);
+        AllocationDTO responseDTO = convertToDTO(savedAllocation);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(responseDTO);
     }
-
-    if (item.isEmpty()) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body("Item not found with ID: " + allocationDTO.getItemId());
-    }
-
-    Inventory itemEntity = item.get();
-    if (itemEntity.getStock() < allocationDTO.getQuantity()) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body("Insufficient stock. Available: " + itemEntity.getStock() +
-                        ", Requested: " + allocationDTO.getQuantity());
-    }
-
-    Orders orders = new Orders();
-    orders.setSalespersonId(allocationDTO.getSalespersonId());
-    orders.setOrderStatus(String.valueOf(allocationDTO.getStatus()));
-    ordersRepository.save(orders);
-
-    // Proceed with allocation
-    Allocation allocation = new Allocation();
-    allocation.setSalesperson(salesperson.get());
-    allocation.setItem(itemEntity);
-    allocation.setOrderId( orders.getOrderId());
-    allocation.setQuantity(allocationDTO.getQuantity());
-
-    if (allocationDTO.getAllocationDate() != null) {
-        allocation.setAllocationDate(allocationDTO.getAllocationDate());
-    }
-
-    // Update item stock
-    itemEntity.setStock(itemEntity.getStock() - allocationDTO.getQuantity());
-    itemRepository.save(itemEntity);
-
-    // Update salesperson allocated items
-    SalesPersons salespersonEntity = salesperson.get();
-    salespersonEntity.setItemsAllocated(
-            salespersonEntity.getItemsAllocated() + allocationDTO.getQuantity());
-    salespersonRepository.save(salespersonEntity);
-
-    Allocation savedAllocation = allocationRepository.save(allocation);
-    AllocationDTO responseDTO = convertToDTO(savedAllocation);
-
-    return ResponseEntity.status(HttpStatus.CREATED).body(responseDTO);
-}
 
 //    public Optional<AllocationDTO> updateAllocation(Long id, AllocationDTO allocationDTO) {
 //        return allocationRepository.findById(id)
@@ -257,55 +250,59 @@ public ResponseEntity<?> createAllocation(AllocationDTO allocationDTO) {
 //                    return convertToDTO(allocationRepository.save(existingAllocation));
 //                });
 //    }
-public ResponseEntity<?> updateAllocation(Long id, AllocationDTO allocationDTO) {
-    Optional<Allocation> allocationOpt = allocationRepository.findById(id);
 
-    if (allocationOpt.isEmpty()) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body("Allocation not found with ID: " + id);
-    }
 
-    Allocation existingAllocation = allocationOpt.get();
 
-    if (allocationDTO.getQuantity() != null) {
-        Double stockDifference = allocationDTO.getQuantity() - existingAllocation.getQuantity();
 
-        Inventory item = existingAllocation.getItem();
-        if (stockDifference > 0 && item.getStock() < stockDifference) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("Insufficient stock for quantity increase. Available: " +
-                            item.getStock() + ", Required: " + stockDifference);
+    public ResponseEntity<?> updateAllocation(Long id, AllocationDTO allocationDTO) {
+        Optional<Allocation> allocationOpt = allocationRepository.findById(id);
+
+        if (allocationOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("Allocation not found with ID: " + id);
         }
 
-        item.setStock(item.getStock() - stockDifference);
-        itemRepository.save(item);
+        Allocation existingAllocation = allocationOpt.get();
 
-        SalesPersons salesperson = existingAllocation.getSalesperson();
-        salesperson.setItemsAllocated(salesperson.getItemsAllocated() + stockDifference);
-        salespersonRepository.save(salesperson);
+        if (allocationDTO.getQuantity() != null) {
+            Double stockDifference = allocationDTO.getQuantity() - existingAllocation.getQuantity();
 
-        existingAllocation.setQuantity(allocationDTO.getQuantity());
+            Inventory item = existingAllocation.getItem();
+            if (stockDifference > 0 && item.getStock() < stockDifference) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body("Insufficient stock for quantity increase. Available: " +
+                                item.getStock() + ", Required: " + stockDifference);
+            }
+
+            item.setStock(item.getStock() - stockDifference);
+            itemRepository.save(item);
+
+            SalesPersons salesperson = existingAllocation.getSalesperson();
+            salesperson.setItemsAllocated(salesperson.getItemsAllocated() + stockDifference);
+            salespersonRepository.save(salesperson);
+
+            existingAllocation.setQuantity(allocationDTO.getQuantity());
+        }
+
+        if (allocationDTO.getAllocationDate() != null) {
+            existingAllocation.setAllocationDate(allocationDTO.getAllocationDate());
+        }
+
+        if (allocationDTO.getStatus() != null) {
+            existingAllocation.setStatus(allocationDTO.getStatus());
+        }
+
+        if (allocationDTO.getSoldQuantity() != null) {
+            existingAllocation.setSoldQuantity(allocationDTO.getSoldQuantity());
+        }
+
+        if (allocationDTO.getPaymentReceived() != null) {
+            existingAllocation.setPaymentReceived(allocationDTO.getPaymentReceived());
+        }
+
+        Allocation updatedAllocation = allocationRepository.save(existingAllocation);
+        return ResponseEntity.ok(convertToDTO(updatedAllocation));
     }
-
-    if (allocationDTO.getAllocationDate() != null) {
-        existingAllocation.setAllocationDate(allocationDTO.getAllocationDate());
-    }
-
-    if (allocationDTO.getStatus() != null) {
-        existingAllocation.setStatus(allocationDTO.getStatus());
-    }
-
-    if (allocationDTO.getSoldQuantity() != null) {
-        existingAllocation.setSoldQuantity(allocationDTO.getSoldQuantity());
-    }
-
-    if (allocationDTO.getPaymentReceived() != null) {
-        existingAllocation.setPaymentReceived(allocationDTO.getPaymentReceived());
-    }
-
-    Allocation updatedAllocation = allocationRepository.save(existingAllocation);
-    return ResponseEntity.ok(convertToDTO(updatedAllocation));
-}
 
     public boolean deleteAllocation(Long id) {
         return allocationRepository.findById(id)
@@ -430,6 +427,7 @@ public ResponseEntity<?> updateAllocation(Long id, AllocationDTO allocationDTO) 
 
         return getAllocationsBySalesperson(salespersonId);
     }
+
     public ResponseEntity<?> processEndOfDay(Long salespersonId, List<EndOfDayProcessingDTO> processingData) {
         List<Allocation> allocations = allocationRepository
                 .findBySalespersonIdAndStatus(salespersonId, AllocationStatus.ALLOCATED);
