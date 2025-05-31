@@ -48,6 +48,9 @@ public class AllocationService {
     public Optional<AllocationDTO> getAllocationById(Long id) {
         return allocationRepository.findById(id)
                 .map(this::convertToDTO);
+    }  public Integer findByItemId(Long id) {
+        return allocationRepository.findByItemId(id).size();
+
     }
 
     public ResponseEntity<?> createAllocations(List<AllocationDTO> allocationDTOs) {

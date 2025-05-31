@@ -46,12 +46,18 @@ public class SalespersonService {
     }
 
     public boolean deleteSalesperson(Long id) {
-        if (salespersonRepository.existsById(id)) {
-            salespersonRepository.deleteById(id);
-            return true;
+        Optional<SalesPersons> salesPersonOpt = salespersonRepository.findById(id);
+        if (salesPersonOpt.isPresent()) {
+            SalesPersons salesPerson = salesPersonOpt.get();
+            double allocated = salesPerson.getItemsAllocated();
+            if (allocated == 0.0) {
+                salespersonRepository.deleteById(id);
+                return true;
+            }
         }
         return false;
     }
+
 
     public List<SalespersonDTO> searchSalespeople(String name) {
         return salespersonRepository.findByNameContainingIgnoreCase(name).stream()

@@ -22,6 +22,8 @@ public class ItemService {
     private ItemRepository itemRepository;
     @Autowired
     private StockAdjustmentRepository logRepo;
+    @Autowired
+    AllocationService allocationService;
 
     public List<ItemDTO> getAllItems() {
         return itemRepository.findAll().stream()
@@ -70,14 +72,14 @@ public class ItemService {
                         previousStock
                 );
             }
-
             return convertToDTO(savedItem);
         });
     }
 
 
     public boolean deleteItem(Long id) {
-        if (itemRepository.existsById(id)) {
+        int exist = allocationService.findByItemId(id);
+        if (itemRepository.existsById(id) && exist==0) {
             itemRepository.deleteById(id);
             return true;
         }
@@ -90,7 +92,6 @@ public class ItemService {
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
-
     public List<ItemDTO> getLowStockItems() {
         return itemRepository.findLowStockItems().stream()
                 .map(this::convertToDTO)

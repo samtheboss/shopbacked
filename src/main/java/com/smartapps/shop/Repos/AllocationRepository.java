@@ -18,7 +18,7 @@ public interface AllocationRepository extends JpaRepository<Allocation, Long> {
     List<Allocation> findBySalespersonIdAndStatusAndId(Long salesperson_id, Allocation.AllocationStatus status, Long id);
 
     List<Allocation> findByAllocationDate(LocalDate date);
-
+    List<Allocation> findByItemId(Long item_id);
     List<Allocation> findByOrderId(Long orderId);
 
     List<Allocation> findByStatus(Allocation.AllocationStatus status);

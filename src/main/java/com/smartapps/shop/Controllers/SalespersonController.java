@@ -46,6 +46,7 @@ public class SalespersonController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteSalesperson(@PathVariable Long id) {
+
         if (salespersonService.deleteSalesperson(id)) {
             return ResponseEntity.noContent().build();
         }
