@@ -18,7 +18,7 @@ public class EndOfDayProcessingDTO {
     @PositiveOrZero(message = "Payment received must be zero or positive")
     private BigDecimal paymentReceived;
 
-    // Constructors
+
     public EndOfDayProcessingDTO() {}
 
     public EndOfDayProcessingDTO(Long allocationId, Double soldQuantity, BigDecimal paymentReceived) {

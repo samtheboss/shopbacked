@@ -50,7 +50,7 @@ public class Inventory {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    @OneToMany(mappedBy = "inventory",  fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "productId",  fetch = FetchType.LAZY)
     private List<Allocation> allocations;
 
 }
